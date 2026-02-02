@@ -123,10 +123,27 @@ def query_rag(query: str, model_name: str):
         )
         
         result = qa_chain.invoke({"query": query})
-        
+
+        sources = []
+        for doc in result.get("source_documents", []) or []:
+            page = None
+            try:
+                page_val = doc.metadata.get("page")
+                if isinstance(page_val, int):
+                    page = page_val
+            except Exception:
+                page = None
+
+            sources.append(
+                {
+                    "page": page,
+                    "snippet": (doc.page_content[:150] + "...") if doc.page_content else "",
+                }
+            )
+
         return {
             "answer": result["result"],
-            "sources": [doc.page_content[:150] + "..." for doc in result["source_documents"]]
+            "sources": sources,
         }
     except Exception as e:
         logger.error(f"Error en RAG: {e}")

@@ -12,7 +12,7 @@
 import ReactMarkdown from 'react-markdown'
 
 /**
- * @param {{message: {role: 'user'|'ai', content: string, sources?: string[]}}} props
+ * @param {{message: {role: 'user'|'ai', content: string, sources?: Array<string|{page?: number|null, snippet: string}>}}} props
  */
 export default function ChatMessage({ message }) {
   const isUser = message.role === 'user'
@@ -34,9 +34,19 @@ export default function ChatMessage({ message }) {
           <div className="mt-4 pt-3 border-t border-indigo-400/20 text-xs">
             <p className="font-semibold text-slate-400 mb-1">Fuentes consultadas:</p>
             <ul className="list-disc pl-4 space-y-1 text-slate-300 opacity-80">
-              {message.sources.map((s, i) => (
-                <li key={i}>{s}</li>
-              ))}
+              {message.sources.map((s, i) => {
+                if (typeof s === 'string') {
+                  return <li key={i}>{s}</li>
+                }
+
+                const pageLabel = (s.page ?? s.page === 0) ? `Página ${s.page}` : 'Página (desconocida)'
+                return (
+                  <li key={i}>
+                    <span className="font-semibold">Fuente:</span> {pageLabel}
+                    {s.snippet ? <span className="block">{s.snippet}</span> : null}
+                  </li>
+                )
+              })}
             </ul>
           </div>
         )}
