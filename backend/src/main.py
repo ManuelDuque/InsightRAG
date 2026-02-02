@@ -27,3 +27,8 @@ async def upload_pdf(file: UploadFile = File(...)):
 async def ask_question(request: schemas.AskRequest):
     config.logger.info(f"Pregunta: '{request.query}' | Modelo: '{request.model_name}'")
     return services.query_rag(request.query, request.model_name)
+
+@app.post("/reset")
+async def reset_database():
+    services.reset_vector_database()
+    return {"message": "Base de datos vectorial eliminada exitosamente."}

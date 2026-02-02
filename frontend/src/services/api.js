@@ -28,4 +28,8 @@ export const askQuestion = async (query, modelName) => {
   return response.data
 }
 
+export const resetDatabase = async () => {
+  await api.post('/reset')
+}
+
 export default api

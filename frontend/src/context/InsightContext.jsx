@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
-import { fetchModels, uploadFile, askQuestion } from '../services/api'
+import { fetchModels, uploadFile, askQuestion, resetDatabase } from '../services/api'
 
 const InsightContext = createContext()
 
@@ -71,6 +71,23 @@ export const InsightProvider = ({ children }) => {
     }
   }
 
+  const handleReset = async () => {
+    if (!confirm('¿Estás seguro de que quieres borrar toda la base de datos vectorial? Esta acción no se puede deshacer.')) {
+      return
+    }
+    
+    setLoading(true)
+    try {
+      await resetDatabase()
+      setMessages([{ role: 'ai', content: '🔄 Base de datos borrada exitosamente. Puedes subir un nuevo documento.' }])
+    } catch (error) {
+      console.error(error)
+      addMessage('ai', '❌ Error: No se pudo borrar la base de datos.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const value = {
     messages,
     loading,
@@ -78,7 +95,8 @@ export const InsightProvider = ({ children }) => {
     selectedModel,
     setSelectedModel,
     handleFileUpload,
-    handleSendMessage
+    handleSendMessage,
+    handleReset
   }
 
   return (

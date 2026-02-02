@@ -84,3 +84,83 @@ def query_rag(query: str, model_name: str):
     except Exception as e:
         logger.error(f"Error en RAG: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+def reset_vector_database():
+    """Elimina completamente la base de datos vectorial y reinicializa"""
+    global vector_db
+    try:
+        # PASO 1: Limpieza Lógica (Intentar vaciar la base de datos mediante la API)
+        # Esto es crucial si no podemos borrar los archivos por bloqueos de Windows
+        if vector_db is not None:
+            try:
+                # Intentar borrar todos los documentos primero
+                ids = vector_db.get().get('ids', [])
+                if ids:
+                    vector_db.delete(ids)
+                    logger.info(f"Eliminados {len(ids)} documentos de la colección actual.")
+                
+                # Intentar borrar la colección entera
+                # ChromaDB a veces mantiene el archivo lockeado, así que vaciarlo es la mejor opción fallback
+                try:
+                    vector_db.delete_collection()
+                    logger.info("Colección eliminada lógicamente.")
+                except Exception as e:
+                    logger.warning(f"No se pudo eliminar la colección (puede que ya esté vacía): {e}")
+
+            except Exception as e:
+                logger.warning(f"Error durante la limpieza lógica: {e}")
+
+        # PASO 2: Intentar liberar recursos del sistema
+        try:
+            vector_db = None
+            import gc
+            gc.collect()
+        except:
+            pass
+
+        # PASO 3: Limpieza Física (Best Effort)
+        # Intentamos borrar la carpeta, pero si Windows la bloquea, no fallamos
+        import time
+        time.sleep(0.5)
+        
+        folder_deleted = False
+        if os.path.exists(DB_FOLDER):
+            try:
+                shutil.rmtree(DB_FOLDER)
+                folder_deleted = True
+                logger.info(f"Directorio DB eliminado físicamente: {DB_FOLDER}")
+            except PermissionError:
+                logger.warning(f"Windows bloqueó el borrado de {DB_FOLDER}. Se confía en la limpieza lógica realizada.")
+            except Exception as e:
+                logger.warning(f"No se pudo eliminar directorio DB: {e}")
+
+        # Limpiar archivos temporales (esto suele dar menos problemas)
+        if os.path.exists(TEMP_FOLDER):
+            for file in os.listdir(TEMP_FOLDER):
+                file_path = os.path.join(TEMP_FOLDER, file)
+                try:
+                    if os.path.isfile(file_path):
+                        os.remove(file_path)
+                except:
+                    pass
+            logger.info(f"Archivos temporales limpiados.")
+
+        # PASO 4: Reinicialización
+        # Recreamos directorios si fueron borrados
+        os.makedirs(DB_FOLDER, exist_ok=True)
+        os.makedirs(TEMP_FOLDER, exist_ok=True)
+        
+        # Reinicializar ChromaDB
+        # Si la carpeta persistía (por bloqueo), al menos la colección debería estar vacía por el Paso 1
+        vector_db = Chroma(persist_directory=DB_FOLDER, embedding_function=embeddings)
+        logger.info("Base de datos vectorial reinicializada y lista.")
+        
+    except Exception as e:
+        logger.error(f"Error crítico al resetear: {e}")
+        # Recuperación de emergencia para evitar que la API muera
+        if vector_db is None:
+            try:
+                vector_db = Chroma(persist_directory=DB_FOLDER, embedding_function=embeddings)
+            except:
+                logger.error("No se pudo recuperar la instancia de vector_db")
+        raise HTTPException(status_code=500, detail=f"Error reseteando DB: {str(e)}")
