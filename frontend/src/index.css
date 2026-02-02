@@ -1,0 +1,27 @@
+@import "tailwindcss";
+
+/* Ocultar barra de desplazamiento pero mantener funcionalidad */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 0px;
+  height: 0px;
+}
+
+.custom-scrollbar {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE y Edge */
+}
+
+/* Animaciones suaves */
+@keyframes gradient-shift {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+.animate-gradient {
+  background-size: 200% 200%;
+  animation: gradient-shift 15s ease infinite;
+}
