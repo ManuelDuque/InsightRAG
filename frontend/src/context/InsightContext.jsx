@@ -1,8 +1,29 @@
+/**
+ * InsightRAG Frontend - Global state (React Context).
+ *
+ * Author: ManuelDuque
+ * Date: 02/02/2026
+ *
+ * This module owns application state and side-effects:
+ * - Chat messages (user + AI)
+ * - Loading state
+ * - Available LLM models and the currently selected model
+ * - High-level actions (upload, ask, reset)
+ *
+ * Components consume the context through the `useInsight` hook.
+ */
+
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import { fetchModels, uploadFile, askQuestion, resetDatabase } from '../services/api'
 
 const InsightContext = createContext()
 
+/**
+ * Access the InsightRAG context.
+ *
+ * @returns {object} Context value containing state and actions.
+ * @throws {Error} If used outside of `InsightProvider`.
+ */
 export const useInsight = () => {
   const context = useContext(InsightContext)
   if (!context) {
@@ -11,6 +32,11 @@ export const useInsight = () => {
   return context
 }
 
+/**
+ * Provider component that supplies global InsightRAG state.
+ *
+ * @param {{children: import('react').ReactNode}} props
+ */
 export const InsightProvider = ({ children }) => {
   const [messages, setMessages] = useState([
     { role: 'ai', content: '👋 ¡Hola! Soy InsightRAG. Elige un modelo, sube un PDF y pregúntame lo que quieras.' }
@@ -19,7 +45,6 @@ export const InsightProvider = ({ children }) => {
   const [models, setModels] = useState([])
   const [selectedModel, setSelectedModel] = useState('')
 
-  // Cargar modelos al inicio
   useEffect(() => {
     const loadModels = async () => {
       try {

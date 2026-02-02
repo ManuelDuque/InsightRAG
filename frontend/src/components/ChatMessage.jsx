@@ -1,5 +1,19 @@
+/**
+ * InsightRAG Frontend - Chat message.
+ *
+ * Author: ManuelDuque
+ * Date: 02/02/2026
+ *
+ * Displays a single message bubble.
+ * - User messages are right-aligned
+ * - AI messages are left-aligned and may include supporting source snippets
+ */
+
 import ReactMarkdown from 'react-markdown'
 
+/**
+ * @param {{message: {role: 'user'|'ai', content: string, sources?: string[]}}} props
+ */
 export default function ChatMessage({ message }) {
   const isUser = message.role === 'user'
   
@@ -16,7 +30,6 @@ export default function ChatMessage({ message }) {
           <ReactMarkdown>{message.content}</ReactMarkdown>
         </div>
 
-        {/* Fuentes */}
         {message.sources && message.sources.length > 0 && (
           <div className="mt-4 pt-3 border-t border-indigo-400/20 text-xs">
             <p className="font-semibold text-slate-400 mb-1">Fuentes consultadas:</p>

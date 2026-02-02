@@ -1,3 +1,13 @@
+/**
+ * InsightRAG Frontend - File uploader.
+ *
+ * Author: ManuelDuque
+ * Date: 02/02/2026
+ *
+ * Provides a styled file input that triggers ingestion of a PDF via the
+ * context action.
+ */
+
 import { useInsight } from '../context/InsightContext'
 
 export default function FileUploader() {

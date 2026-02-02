@@ -1,17 +1,25 @@
+/*
+  InsightRAG Frontend - Global styles.
+
+  Author: ManuelDuque
+  Date: 02/02/2026
+
+  This stylesheet provides project-wide Tailwind setup and a small set of
+  utility classes/animations used by the UI.
+*/
+
 @import "tailwindcss";
 
-/* Ocultar barra de desplazamiento pero mantener funcionalidad */
 .custom-scrollbar::-webkit-scrollbar {
   width: 0px;
   height: 0px;
 }
 
 .custom-scrollbar {
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* IE y Edge */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
-/* Animaciones suaves */
 @keyframes gradient-shift {
   0%, 100% {
     background-position: 0% 50%;

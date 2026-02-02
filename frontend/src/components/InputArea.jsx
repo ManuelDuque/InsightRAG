@@ -1,3 +1,15 @@
+/**
+ * InsightRAG Frontend - Input area.
+ *
+ * Author: ManuelDuque
+ * Date: 02/02/2026
+ *
+ * Bottom panel that provides:
+ * - Active model indicator
+ * - Reset vector database action
+ * - Text input to send a question to the backend
+ */
+
 import { useState } from 'react'
 import { useInsight } from '../context/InsightContext'
 import ActiveModelIndicator from './ActiveModelIndicator'
@@ -18,7 +30,6 @@ export default function InputArea() {
         <ActiveModelIndicator />
         
         <div className="flex gap-3 items-center">
-          {/* Botón Reset */}
           <button
             onClick={handleReset}
             disabled={loading}
@@ -30,7 +41,6 @@ export default function InputArea() {
             </svg>
           </button>
 
-          {/* Input y botón de enviar */}
           <div className="relative flex-1">
             <input 
               type="text" 

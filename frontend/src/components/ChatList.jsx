@@ -1,3 +1,13 @@
+/**
+ * InsightRAG Frontend - Chat list.
+ *
+ * Author: ManuelDuque
+ * Date: 02/02/2026
+ *
+ * Renders the conversation history and keeps the viewport pinned to the
+ * newest message.
+ */
+
 import { useEffect, useRef } from 'react'
 import { useInsight } from '../context/InsightContext'
 import ChatMessage from './ChatMessage'

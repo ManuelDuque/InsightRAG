@@ -1,3 +1,17 @@
+/**
+ * InsightRAG Frontend - Model selector.
+ *
+ * Author: ManuelDuque
+ * Date: 02/02/2026
+ *
+ * Dropdown control that allows selecting one of the backend-supported models.
+ *
+ * Behavior
+ * --------
+ * - Disabled until the model list is loaded.
+ * - Closes automatically when the user clicks outside the dropdown.
+ */
+
 import { useState, useRef, useEffect } from 'react'
 import { useInsight } from '../context/InsightContext'
 
@@ -6,7 +20,6 @@ export default function ModelSelector() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const dropdownRef = useRef(null)
 
-  // Cerrar dropdown al hacer click fuera
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -46,7 +59,6 @@ export default function ModelSelector() {
         </svg>
       </button>
 
-      {/* Dropdown Menu */}
       {isDropdownOpen && models.length > 0 && (
         <div className="absolute z-50 mt-2 w-full md:w-44 bg-gradient-to-br from-slate-800 to-slate-900 border border-indigo-500/30 rounded-lg shadow-2xl shadow-indigo-900/50 backdrop-blur-xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
           <div className="max-h-60 overflow-y-auto custom-scrollbar">

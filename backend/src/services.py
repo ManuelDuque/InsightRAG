@@ -1,3 +1,26 @@
+"""InsightRAG Backend - Service layer.
+
+Author: ManuelDuque
+Date: 02/02/2026
+
+This module contains the backend's core application logic:
+- PDF ingestion (store temporarily, load, chunk, embed)
+- Vector database persistence using Chroma
+- Retrieval-Augmented Generation (RAG) query execution
+- Vector database reset with Windows-friendly best-effort cleanup
+
+Design
+------
+The FastAPI routes call into this module so that HTTP concerns remain
+separated from business logic.
+
+Operational Notes
+-----------------
+Chroma persistence can be file-locked on Windows. The reset routine first
+attempts a logical cleanup (delete documents/collection) before a physical
+folder deletion.
+"""
+
 import os
 import shutil
 import google.generativeai as genai
@@ -11,16 +34,18 @@ from fastapi import UploadFile, HTTPException
 
 from .config import logger, DB_FOLDER, TEMP_FOLDER, GOOGLE_API_KEY
 
-# Configurar GenAI nativo para listar modelos
 genai.configure(api_key=GOOGLE_API_KEY)
 
-# Inicializar Embeddings (Singleton)
 logger.info("Cargando modelo de Embeddings Local...")
 embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 vector_db = Chroma(persist_directory=DB_FOLDER, embedding_function=embeddings)
 
 def list_available_models():
-    """Obtiene modelos de Google compatibles con generación de contenido"""
+    """Return Google models that support content generation.
+
+    The Google GenAI SDK exposes many models; we filter to those that advertise
+    the `generateContent` capability.
+    """
     try:
         models = []
         for m in genai.list_models():
@@ -32,26 +57,35 @@ def list_available_models():
         return []
 
 async def process_pdf(file: UploadFile):
-    """Guarda, carga, fragmenta e indexa un PDF"""
+    """Ingest a PDF into the vector database.
+
+    Steps
+    -----
+    1) Persist the uploaded file into the temp folder.
+    2) Load pages using LangChain's PDF loader.
+    3) Split into overlapping chunks.
+    4) Embed and persist chunks into the Chroma vector database.
+
+    Returns
+    -------
+    int
+        Number of chunks added to the vector database.
+    """
     if not file.filename.endswith('.pdf'):
         raise HTTPException(status_code=400, detail="Solo archivos PDF")
 
     file_path = os.path.join(TEMP_FOLDER, file.filename)
     
     try:
-        # Guardar
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
-        # Cargar
         loader = PyPDFLoader(file_path)
         docs = loader.load()
 
-        # Fragmentar
         text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
         splits = text_splitter.split_documents(docs)
 
-        # Indexar
         if splits:
             vector_db.add_documents(documents=splits)
             logger.info(f"Indexados {len(splits)} fragmentos.")
@@ -66,7 +100,20 @@ async def process_pdf(file: UploadFile):
             os.remove(file_path)
 
 def query_rag(query: str, model_name: str):
-    """Ejecuta la cadena RAG"""
+    """Execute a RAG query over the persisted embeddings.
+
+    Parameters
+    ----------
+    query:
+        Natural language question from the user.
+    model_name:
+        Google GenAI model identifier (e.g., `models/gemini-...`).
+
+    Returns
+    -------
+    dict
+        A dict with an `answer` string and a list of short `sources` snippets.
+    """
     try:
         llm = ChatGoogleGenerativeAI(model=model_name, temperature=0, max_retries=2)
         
@@ -86,21 +133,26 @@ def query_rag(query: str, model_name: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 def reset_vector_database():
-    """Elimina completamente la base de datos vectorial y reinicializa"""
+    """Reset the vector database and ingestion temp state.
+
+    This function is written to be resilient on Windows, where the on-disk
+    Chroma persistence directory may be locked by the current process.
+
+    Strategy
+    --------
+    - Logical cleanup first: delete documents / collection through the API.
+    - Best-effort physical cleanup: attempt to delete the persistence folder.
+    - Always recreate folders and reinitialize the global `vector_db`.
+    """
     global vector_db
     try:
-        # PASO 1: Limpieza Lógica (Intentar vaciar la base de datos mediante la API)
-        # Esto es crucial si no podemos borrar los archivos por bloqueos de Windows
         if vector_db is not None:
             try:
-                # Intentar borrar todos los documentos primero
                 ids = vector_db.get().get('ids', [])
                 if ids:
                     vector_db.delete(ids)
                     logger.info(f"Eliminados {len(ids)} documentos de la colección actual.")
                 
-                # Intentar borrar la colección entera
-                # ChromaDB a veces mantiene el archivo lockeado, así que vaciarlo es la mejor opción fallback
                 try:
                     vector_db.delete_collection()
                     logger.info("Colección eliminada lógicamente.")
@@ -110,7 +162,6 @@ def reset_vector_database():
             except Exception as e:
                 logger.warning(f"Error durante la limpieza lógica: {e}")
 
-        # PASO 2: Intentar liberar recursos del sistema
         try:
             vector_db = None
             import gc
@@ -118,8 +169,6 @@ def reset_vector_database():
         except:
             pass
 
-        # PASO 3: Limpieza Física (Best Effort)
-        # Intentamos borrar la carpeta, pero si Windows la bloquea, no fallamos
         import time
         time.sleep(0.5)
         
@@ -134,7 +183,6 @@ def reset_vector_database():
             except Exception as e:
                 logger.warning(f"No se pudo eliminar directorio DB: {e}")
 
-        # Limpiar archivos temporales (esto suele dar menos problemas)
         if os.path.exists(TEMP_FOLDER):
             for file in os.listdir(TEMP_FOLDER):
                 file_path = os.path.join(TEMP_FOLDER, file)
@@ -145,19 +193,14 @@ def reset_vector_database():
                     pass
             logger.info(f"Archivos temporales limpiados.")
 
-        # PASO 4: Reinicialización
-        # Recreamos directorios si fueron borrados
         os.makedirs(DB_FOLDER, exist_ok=True)
         os.makedirs(TEMP_FOLDER, exist_ok=True)
         
-        # Reinicializar ChromaDB
-        # Si la carpeta persistía (por bloqueo), al menos la colección debería estar vacía por el Paso 1
         vector_db = Chroma(persist_directory=DB_FOLDER, embedding_function=embeddings)
         logger.info("Base de datos vectorial reinicializada y lista.")
         
     except Exception as e:
         logger.error(f"Error crítico al resetear: {e}")
-        # Recuperación de emergencia para evitar que la API muera
         if vector_db is None:
             try:
                 vector_db = Chroma(persist_directory=DB_FOLDER, embedding_function=embeddings)

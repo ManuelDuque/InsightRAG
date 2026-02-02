@@ -1,3 +1,15 @@
+/**
+ * InsightRAG Frontend - Header.
+ *
+ * Author: ManuelDuque
+ * Date: 02/02/2026
+ *
+ * Top navigation area containing:
+ * - Product branding
+ * - Model selector
+ * - PDF uploader
+ */
+
 import ModelSelector from './ModelSelector'
 import FileUploader from './FileUploader'
 

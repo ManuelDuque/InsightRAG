@@ -1,3 +1,12 @@
+/**
+ * InsightRAG Frontend - Active model indicator.
+ *
+ * Author: ManuelDuque
+ * Date: 02/02/2026
+ *
+ * Small status pill showing the currently selected LLM model.
+ */
+
 import { useInsight } from '../context/InsightContext'
 
 export default function ActiveModelIndicator() {
