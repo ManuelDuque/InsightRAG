@@ -23,24 +23,15 @@ folder deletion.
 
 import os
 import shutil
-import google.generativeai as genai
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_chroma import Chroma
 from langchain.chains import RetrievalQA
 from fastapi import UploadFile, HTTPException
 
-from .config import logger, DB_FOLDER, TEMP_FOLDER, GOOGLE_API_KEY
+from .config import logger, DB_FOLDER, TEMP_FOLDER
+from .providers import RAGProviders
 
-genai.configure(api_key=GOOGLE_API_KEY)
-
-logger.info("Cargando modelo de Embeddings Local...")
-embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-vector_db = Chroma(persist_directory=DB_FOLDER, embedding_function=embeddings)
-
-def list_available_models():
+def list_available_models(providers: RAGProviders):
     """Return Google models that support content generation.
 
     The Google GenAI SDK exposes many models; we filter to those that advertise
@@ -48,7 +39,7 @@ def list_available_models():
     """
     try:
         models = []
-        for m in genai.list_models():
+        for m in providers.genai.list_models():
             if 'generateContent' in m.supported_generation_methods:
                 models.append(m.name)
         return models
@@ -56,7 +47,7 @@ def list_available_models():
         logger.error(f"Error listando modelos: {e}")
         return []
 
-async def process_pdf(file: UploadFile):
+async def process_pdf(file: UploadFile, providers: RAGProviders):
     """Ingest a PDF into the vector database.
 
     Steps
@@ -87,7 +78,7 @@ async def process_pdf(file: UploadFile):
         splits = text_splitter.split_documents(docs)
 
         if splits:
-            vector_db.add_documents(documents=splits)
+            providers.vector_db.add_documents(documents=splits)
             logger.info(f"Indexados {len(splits)} fragmentos.")
             return len(splits)
         return 0
@@ -99,7 +90,7 @@ async def process_pdf(file: UploadFile):
         if os.path.exists(file_path):
             os.remove(file_path)
 
-def query_rag(query: str, model_name: str):
+def query_rag(query: str, model_name: str, providers: RAGProviders):
     """Execute a RAG query over the persisted embeddings.
 
     Parameters
@@ -115,9 +106,9 @@ def query_rag(query: str, model_name: str):
         A dict with an `answer` string and a list of short `sources` snippets.
     """
     try:
-        llm = ChatGoogleGenerativeAI(model=model_name, temperature=0, max_retries=2)
+        llm = providers.build_llm(model_name)
         
-        retriever = vector_db.as_retriever(search_kwargs={"k": 3})
+        retriever = providers.vector_db.as_retriever(search_kwargs={"k": 3})
         qa_chain = RetrievalQA.from_chain_type(
             llm=llm, chain_type="stuff", retriever=retriever, return_source_documents=True
         )
@@ -149,7 +140,7 @@ def query_rag(query: str, model_name: str):
         logger.error(f"Error en RAG: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-def reset_vector_database():
+def reset_vector_database(providers: RAGProviders):
     """Reset the vector database and ingestion temp state.
 
     This function is written to be resilient on Windows, where the on-disk
@@ -161,17 +152,16 @@ def reset_vector_database():
     - Best-effort physical cleanup: attempt to delete the persistence folder.
     - Always recreate folders and reinitialize the global `vector_db`.
     """
-    global vector_db
     try:
-        if vector_db is not None:
+        if providers.vector_db is not None:
             try:
-                ids = vector_db.get().get('ids', [])
+                ids = providers.vector_db.get().get('ids', [])
                 if ids:
-                    vector_db.delete(ids)
+                    providers.vector_db.delete(ids)
                     logger.info(f"Eliminados {len(ids)} documentos de la colección actual.")
                 
                 try:
-                    vector_db.delete_collection()
+                    providers.vector_db.delete_collection()
                     logger.info("Colección eliminada lógicamente.")
                 except Exception as e:
                     logger.warning(f"No se pudo eliminar la colección (puede que ya esté vacía): {e}")
@@ -180,7 +170,7 @@ def reset_vector_database():
                 logger.warning(f"Error durante la limpieza lógica: {e}")
 
         try:
-            vector_db = None
+            providers.vector_db = None
             import gc
             gc.collect()
         except:
@@ -189,11 +179,9 @@ def reset_vector_database():
         import time
         time.sleep(0.5)
         
-        folder_deleted = False
         if os.path.exists(DB_FOLDER):
             try:
                 shutil.rmtree(DB_FOLDER)
-                folder_deleted = True
                 logger.info(f"Directorio DB eliminado físicamente: {DB_FOLDER}")
             except PermissionError:
                 logger.warning(f"Windows bloqueó el borrado de {DB_FOLDER}. Se confía en la limpieza lógica realizada.")
@@ -213,14 +201,14 @@ def reset_vector_database():
         os.makedirs(DB_FOLDER, exist_ok=True)
         os.makedirs(TEMP_FOLDER, exist_ok=True)
         
-        vector_db = Chroma(persist_directory=DB_FOLDER, embedding_function=embeddings)
+        providers.rebuild_vector_db()
         logger.info("Base de datos vectorial reinicializada y lista.")
         
     except Exception as e:
         logger.error(f"Error crítico al resetear: {e}")
-        if vector_db is None:
+        if providers.vector_db is None:
             try:
-                vector_db = Chroma(persist_directory=DB_FOLDER, embedding_function=embeddings)
+                providers.rebuild_vector_db()
             except:
                 logger.error("No se pudo recuperar la instancia de vector_db")
         raise HTTPException(status_code=500, detail=f"Error reseteando DB: {str(e)}")
