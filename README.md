@@ -5,31 +5,34 @@
 [![React](https://img.shields.io/badge/React-19-61DAFB.svg)](https://react.dev/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-InsightRAG es un sistema de Generación Aumentada por Recuperación (RAG) diseñado para transformar documentos PDF estáticos en una base de conocimiento interactiva. Combina **embeddings locales** (privacidad/coste) con **LLMs (Google Gemini)** para sintetizar respuestas con trazabilidad.
+InsightRAG es un sistema de Generación Aumentada por Recuperación (RAG) diseñado para transformar documentos PDF estáticos en una base de conocimiento interactiva. Combina **embeddings locales** (privacidad/coste) con **LLMs (Google Gemini)** para sintetizar respuestas con trazabilidad, y ahora incluye una interfaz tipo macOS con **modo claro/oscuro persistente**.
 
 ## 🚀 Key Features
+
 - **Hybrid RAG Pipeline:** ingesta PDF → chunking → embeddings locales → ChromaDB → recuperación → respuesta con Gemini.
 - **Dynamic Model Selection:** lista modelos disponibles desde el proveedor y permite elegir en UI.
 - **Vector Persistence:** persistencia local en ChromaDB para iterar rápido.
 - **Sources / Traceability:** devuelve evidencias con metadatos (página) + snippet.
-- **Professional UI:** chat moderno con selección de modelo y carga de documentos.
+- **Professional UI:** chat moderno con selector de modelo, carga de documentos y tema claro/oscuro.
+- **Architecture Cleanup:** backend separado por capas de API, aplicación, dominio e infraestructura.
 
 ## 🏗️ Architecture
 
 La documentación técnica está en la carpeta `docs/`:
+
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): flujo completo PDF → vectores → RAG (incluye diagramas Mermaid).
 - [docs/API_GUIDE.md](docs/API_GUIDE.md): contrato API, errores y notas operativas (incl. 429).
 - [docs/DECISIONS.md](docs/DECISIONS.md): justificación de decisiones (embeddings locales, chunking, persistencia, etc.).
 
 ## 🛠️ Tech Stack
 
-| Component | Technology |
-|---|---|
-| Frontend | React + Vite + Axios + Tailwind |
-| Backend | FastAPI + LangChain |
-| Vector DB | ChromaDB |
+| Component  | Technology                                                    |
+| ---------- | ------------------------------------------------------------- |
+| Frontend   | React + Vite + Axios + Tailwind                               |
+| Backend    | FastAPI + LangChain                                           |
+| Vector DB  | ChromaDB                                                      |
 | Embeddings | HuggingFace (local: `sentence-transformers/all-MiniLM-L6-v2`) |
-| LLM | Google Gemini (via `langchain-google-genai`) |
+| LLM        | Google Gemini (via `langchain-google-genai`)                  |
 
 ## ⚙️ Installation & Setup
 
@@ -65,6 +68,7 @@ npm install
 ```
 
 Configura la URL del backend con variables de entorno (Vite):
+
 - `frontend/.env` (ya incluido en este repo para dev local)
 - ejemplo: `frontend/.env.example`
 
@@ -76,17 +80,23 @@ UI (dev): `http://localhost:5173`
 
 ## 📸 Screenshots
 
-### 1) Vista principal (UI)
+### 1) Vista principal en tema oscuro
 
-Interfaz principal del chat, con **selector de modelo** y **carga de documentos PDF** para iniciar la ingesta.
+Interfaz principal del chat con estética tipo macOS, selector de modelo, carga de PDF y fondo visual más limpio.
 
-![UI: pantalla principal con selección de modelo y carga de PDF](docs/screenshots/home.png)
+![Vista principal en tema oscuro](docs/screenshots/home_dark.png)
 
-### 2) Respuesta con trazabilidad (RAG)
+### 2) Vista principal en tema claro
+
+La misma experiencia en modo claro, con la nueva paleta semántica y contraste equilibrado.
+
+![Vista principal en tema claro](docs/screenshots/image_light.png)
+
+### 3) Respuesta con trazabilidad
 
 Ejemplo de pregunta y respuesta generada, incluyendo **fuentes/evidencias** con metadatos (página) y un snippet del contenido recuperado.
 
-![UI: respuesta con fuentes (página + snippet)](docs/screenshots/response_with_sources.png)
+![Respuesta con fuentes](docs/screenshots/response_with_sources.png)
 
 ## 🧪 API Contract (Quick Reference)
 
@@ -94,6 +104,14 @@ Ejemplo de pregunta y respuesta generada, incluyendo **fuentes/evidencias** con 
 - `POST /upload` → ingiere un PDF
 - `POST /ask` → `{ query, model_name }` → `{ answer, sources: [{ page, snippet }] }`
 - `POST /reset` → resetea vector DB
+
+## 🧱 Current Architecture
+
+- Frontend React con tema global en contexto, componentes pequeños y UI reutilizable.
+- Backend FastAPI con rutas separadas, dependencias de API, servicios de aplicación y excepciones de dominio.
+- Persistencia local en ChromaDB para la base vectorial.
+- Embeddings locales con HuggingFace para privacidad y coste.
+- Gemini para generación de respuestas con contexto recuperado.
 
 ## 🗺️ Roadmap (Engineering-grade)
 

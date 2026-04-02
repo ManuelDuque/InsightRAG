@@ -10,11 +10,12 @@
  */
 
 import ReactMarkdown from 'react-markdown'
+import { memo } from 'react'
 
 /**
  * @param {{message: {role: 'user'|'ai', content: string, sources?: Array<string|{page?: number|null, snippet: string}>}}} props
  */
-export default function ChatMessage({ message }) {
+function ChatMessage({ message }) {
   const isUser = message.role === 'user'
   
   return (
@@ -22,8 +23,8 @@ export default function ChatMessage({ message }) {
       <div 
         className={`max-w-[85%] md:max-w-[75%] rounded-2xl p-4 shadow-2xl transition-all duration-300 hover:scale-[1.02] ${
           isUser 
-            ? 'bg-gradient-to-br from-indigo-600 to-purple-600 text-white rounded-br-sm shadow-indigo-500/40' 
-            : 'bg-gradient-to-br from-slate-800/90 to-slate-700/90 text-slate-100 rounded-bl-sm border border-indigo-500/20 backdrop-blur-sm shadow-indigo-900/20'
+            ? 'bg-linear-to-br from-indigo-600 to-purple-600 text-white rounded-br-sm shadow-indigo-500/40' 
+            : 'bg-linear-to-br from-slate-800/90 to-slate-700/90 text-slate-100 rounded-bl-sm border border-indigo-500/20 backdrop-blur-sm shadow-indigo-900/20'
         }`}
       >
         <div className="prose prose-invert prose-sm max-w-none">
@@ -54,3 +55,5 @@ export default function ChatMessage({ message }) {
     </div>
   )
 }
+
+export default memo(ChatMessage)
