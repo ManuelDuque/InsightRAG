@@ -5,24 +5,29 @@ Este documento describe la arquitectura del sistema InsightRAG y, sobre todo, el
 ## System Overview
 
 InsightRAG es un sistema RAG (Retrieval-Augmented Generation) con:
-- **Frontend** (React + Vite): carga PDFs, selecciona modelo, chat.
-- **Backend** (FastAPI + LangChain): ingesta, chunking, embeddings, búsqueda vectorial, RAG.
+
+- **Frontend** (React + Vite): carga PDFs, selecciona modelo, chat y tema claro/oscuro persistente.
+- **Backend** (FastAPI + LangChain): ingesta, chunking, embeddings, búsqueda vectorial, RAG y separación por capas.
 - **Vector DB** (Chroma persistente): almacena embeddings y metadatos.
 - **Embeddings locales** (`sentence-transformers/all-MiniLM-L6-v2`): privacidad/coste y menor dependencia externa.
 - **LLM** (Google Gemini via `langchain-google-genai`): genera la respuesta final usando contexto recuperado.
+- **Theme System** (frontend): tokens semánticos, superficies tipo macOS y toggle persistente.
 
 ## Componentes
 
-- **API (FastAPI)**
-  - `GET /models`: lista modelos disponibles desde el SDK de Google.
-  - `POST /upload`: ingiere un PDF y lo indexa en Chroma.
-  - `POST /ask`: ejecuta el flujo RAG.
-  - `POST /reset`: resetea la base vectorial.
+- **API Layer**
+  - `src/main.py`: instancia FastAPI, lifespan y handlers.
+  - `src/api/routes.py`: `GET /models`, `POST /upload`, `POST /ask`, `POST /reset`.
+  - `src/api/dependencies.py`: auth y providers.
 
-- **Service Layer (backend/src/services.py)**
-  - `process_pdf`: guarda el PDF temporalmente, extrae páginas, chunking y añade a Chroma.
-  - `query_rag`: crea `Retriever` sobre Chroma y ejecuta `RetrievalQA`.
-  - `reset_vector_database`: limpieza lógica + best-effort borrado físico (Windows-friendly).
+- **Application Layer**
+  - `src/application_services.py`: `process_pdf`, `query_rag`, `reset_vector_database`, `list_available_models`.
+
+- **Domain Layer**
+  - `src/domain/exceptions.py`: `AppError`, `ValidationError`, `ProcessingError`, `InfrastructureError`.
+
+- **Compatibility Bridge**
+  - `src/services.py`: reexporta la nueva capa para mantener imports existentes.
 
 ## Data Flow (PDF → Vector DB)
 
@@ -31,7 +36,7 @@ flowchart LR
   A[Browser
 FileUploader] -->|POST /upload (multipart)| B[FastAPI
 upload_pdf]
-  B --> C[services.process_pdf]
+  B --> C[application_services.process_pdf]
   C --> D[Temp file
 backend/temp_files]
   C --> E[PyPDFLoader
@@ -49,11 +54,12 @@ persist_directory=backend/chroma_db]
 ### Detalles operativos de ingesta
 
 1. El frontend manda el PDF con `multipart/form-data`.
-2. El backend lo escribe en `TEMP_FOLDER`.
-3. `PyPDFLoader` produce documentos por página (incluye metadatos como `page`).
-4. `RecursiveCharacterTextSplitter` divide en chunks con solape.
-5. Se calculan embeddings localmente.
-6. Chroma persiste en disco, permitiendo reinicios sin perder el índice.
+2. `src/api/routes.py` valida MIME, tamaño y auth si corresponde.
+3. `src/application_services.py` escribe el archivo en `TEMP_FOLDER`.
+4. `PyPDFLoader` produce documentos por página (incluye metadatos como `page`).
+5. `RecursiveCharacterTextSplitter` divide en chunks con solape.
+6. Se calculan embeddings localmente.
+7. Chroma persiste en disco, permitiendo reinicios sin perder el índice.
 
 ## Query Flow (Pregunta → Respuesta)
 
@@ -62,7 +68,7 @@ sequenceDiagram
   participant U as User
   participant FE as Frontend (React)
   participant API as FastAPI
-  participant S as services.query_rag
+  participant S as application_services.query_rag
   participant V as Chroma (Retriever)
   participant L as Gemini (LLM)
 
@@ -84,6 +90,18 @@ sequenceDiagram
   - reiniciar el backend sin reindexar,
   - operar como MVP sin dependencias externas.
 
+## Frontend UI Architecture
+
+La UI se reorganizó para reducir deuda técnica visual:
+
+- `src/context/ThemeContext.jsx`: tema global, persistencia y sincronía con el sistema.
+- `src/components/ui/Button.jsx`: primitiva reutilizable para acciones.
+- `src/components/Header.jsx`: cabecera tipo macOS con toggle de tema.
+- `src/components/InputArea.jsx`: composición del input de usuario y acción de reset.
+- `src/components/ResetConfirmModal.jsx`: modal controlado y renderizado en portal.
+
+El objetivo es que los componentes de presentación consuman tokens y no colores hardcoded.
+
 ## Security & Privacy Notes
 
 - Los **embeddings son locales**: el texto del documento no se envía a un servicio externo para vectorización.
@@ -93,6 +111,13 @@ sequenceDiagram
   - autenticar endpoints,
   - limitar tamaño de PDF y tipo MIME,
   - auditar/anonimizar datos sensibles si procede.
+
+## Design Principles
+
+- Superficies neutras y jerarquía visual suave, estilo macOS.
+- Modo claro/oscuro con tokens semánticos, no colores aislados en JSX.
+- Componentes pequeños y composables.
+- Feedback de interacción claro, sin efectos visuales invasivos.
 
 ## Error Handling (High-Level)
 

@@ -13,6 +13,7 @@ import ChatList from './components/ChatList'
 import InputArea from './components/InputArea'
 import ErrorBoundary from './components/ErrorBoundary'
 import { InsightProvider } from './context/InsightContext'
+import { ThemeProvider } from './context/ThemeContext'
 
 function AppLayout() {
   /**
@@ -22,7 +23,7 @@ function AppLayout() {
    * reason about.
    */
   return (
-    <div className="flex flex-col h-screen bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-slate-200 font-sans animate-gradient">
+    <div className="app-shell flex h-screen flex-col">
       <Header />
       <ChatList />
       <InputArea />
@@ -37,11 +38,13 @@ function App() {
    * Provides global InsightRAG state via React Context.
    */
   return (
-    <InsightProvider>
-      <ErrorBoundary>
-        <AppLayout />
-      </ErrorBoundary>
-    </InsightProvider>
+    <ThemeProvider>
+      <InsightProvider>
+        <ErrorBoundary>
+          <AppLayout />
+        </ErrorBoundary>
+      </InsightProvider>
+    </ThemeProvider>
   )
 }
 

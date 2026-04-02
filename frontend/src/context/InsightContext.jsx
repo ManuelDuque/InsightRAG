@@ -1,3 +1,5 @@
+/* eslint-disable react-refresh/only-export-components */
+
 /**
  * InsightRAG Frontend - Global state (React Context).
  *
@@ -50,10 +52,13 @@ export const InsightProvider = ({ children }) => {
     buildMessage('ai', '👋 ¡Hola! Soy InsightRAG. Elige un modelo, sube un PDF y pregúntame lo que quieras.')
   ])
   const [loading, setLoading] = useState(false)
-  const [isResetModalOpen, setIsResetModalOpen] = useState(false)
   const [models, setModels] = useState([])
   const [selectedModel, setSelectedModel] = useState('')
   const askAbortControllerRef = useRef(null)
+
+  const addMessage = useCallback((role, content, sources = []) => {
+    setMessages((prev) => [...prev, buildMessage(role, content, sources)])
+  }, [buildMessage])
 
   useEffect(() => {
     const loadModels = async () => {
@@ -69,11 +74,7 @@ export const InsightProvider = ({ children }) => {
       }
     }
     loadModels()
-  }, [])
-
-  const addMessage = useCallback((role, content, sources = []) => {
-    setMessages(prev => [...prev, buildMessage(role, content, sources)])
-  }, [buildMessage])
+  }, [addMessage])
 
   useEffect(() => {
     return () => {
@@ -118,26 +119,11 @@ export const InsightProvider = ({ children }) => {
     }
   }
 
-  const openResetModal = useCallback(() => {
-    if (loading) {
-      return
-    }
-    setIsResetModalOpen(true)
-  }, [loading])
-
-  const closeResetModal = useCallback(() => {
-    if (loading) {
-      return
-    }
-    setIsResetModalOpen(false)
-  }, [loading])
-
   const handleReset = async () => {
     if (loading) {
       return
     }
 
-    setIsResetModalOpen(false)
     setLoading(true)
     try {
       await resetDatabase()
@@ -153,15 +139,12 @@ export const InsightProvider = ({ children }) => {
   const value = {
     messages,
     loading,
-    isResetModalOpen,
     models,
     selectedModel,
     setSelectedModel,
     handleFileUpload,
     handleSendMessage,
-    handleReset,
-    openResetModal,
-    closeResetModal
+    handleReset
   }
 
   return (
