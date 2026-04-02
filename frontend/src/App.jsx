@@ -11,6 +11,7 @@
 import Header from './components/Header'
 import ChatList from './components/ChatList'
 import InputArea from './components/InputArea'
+import ErrorBoundary from './components/ErrorBoundary'
 import { InsightProvider } from './context/InsightContext'
 
 function AppLayout() {
@@ -37,7 +38,9 @@ function App() {
    */
   return (
     <InsightProvider>
-      <AppLayout />
+      <ErrorBoundary>
+        <AppLayout />
+      </ErrorBoundary>
     </InsightProvider>
   )
 }

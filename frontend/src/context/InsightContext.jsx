@@ -13,8 +13,8 @@
  * Components consume the context through the `useInsight` hook.
  */
 
-import { createContext, useContext, useState, useEffect, useCallback } from 'react'
-import { fetchModels, uploadFile, askQuestion, resetDatabase } from '../services/api'
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react'
+import { fetchModels, uploadFile, askQuestion, resetDatabase, getErrorMessage } from '../services/api'
 
 const InsightContext = createContext()
 
@@ -38,12 +38,21 @@ export const useInsight = () => {
  * @param {{children: import('react').ReactNode}} props
  */
 export const InsightProvider = ({ children }) => {
+  const buildMessage = useCallback((role, content, sources = []) => ({
+    id: globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`,
+    role,
+    content,
+    sources,
+    createdAt: new Date().toISOString()
+  }), [])
+
   const [messages, setMessages] = useState([
-    { role: 'ai', content: '👋 ¡Hola! Soy InsightRAG. Elige un modelo, sube un PDF y pregúntame lo que quieras.' }
+    buildMessage('ai', '👋 ¡Hola! Soy InsightRAG. Elige un modelo, sube un PDF y pregúntame lo que quieras.')
   ])
   const [loading, setLoading] = useState(false)
   const [models, setModels] = useState([])
   const [selectedModel, setSelectedModel] = useState('')
+  const askAbortControllerRef = useRef(null)
 
   useEffect(() => {
     const loadModels = async () => {
@@ -55,14 +64,20 @@ export const InsightProvider = ({ children }) => {
         }
       } catch (error) {
         console.error("Error cargando modelos:", error)
-        addMessage('ai', '⚠️ Error: No puedo conectar con el servidor.')
+        addMessage('ai', `⚠️ Error: ${getErrorMessage(error, 'No puedo conectar con el servidor.')}`)
       }
     }
     loadModels()
   }, [])
 
   const addMessage = useCallback((role, content, sources = []) => {
-    setMessages(prev => [...prev, { role, content, sources }])
+    setMessages(prev => [...prev, buildMessage(role, content, sources)])
+  }, [buildMessage])
+
+  useEffect(() => {
+    return () => {
+      askAbortControllerRef.current?.abort()
+    }
   }, [])
 
   const handleFileUpload = async (file) => {
@@ -73,25 +88,31 @@ export const InsightProvider = ({ children }) => {
       addMessage('ai', `✅ Archivo **"${file.name}"** procesado y listo para consultas.`)
     } catch (error) {
       console.error(error)
-      alert('Error al subir el archivo')
+      addMessage('ai', `❌ Error al subir el archivo: ${getErrorMessage(error, 'Error desconocido')}`)
     } finally {
       setLoading(false)
     }
   }
 
   const handleSendMessage = async (text) => {
-    if (!text.trim()) return
+    if (!text.trim() || loading) return
 
     addMessage('user', text)
     setLoading(true)
+    askAbortControllerRef.current?.abort()
+    askAbortControllerRef.current = new AbortController()
 
     try {
-      const data = await askQuestion(text, selectedModel)
+      const data = await askQuestion(text, selectedModel, askAbortControllerRef.current.signal)
       addMessage('ai', data.answer, data.sources)
     } catch (error) {
+      if (error?.name === 'CanceledError' || error?.code === 'ERR_CANCELED') {
+        return
+      }
       console.error(error)
-      addMessage('ai', '❌ Error: Algo falló al generar la respuesta.')
+      addMessage('ai', `❌ Error: ${getErrorMessage(error, 'Algo falló al generar la respuesta.')}`)
     } finally {
+      askAbortControllerRef.current = null
       setLoading(false)
     }
   }
@@ -104,10 +125,10 @@ export const InsightProvider = ({ children }) => {
     setLoading(true)
     try {
       await resetDatabase()
-      setMessages([{ role: 'ai', content: '🔄 Base de datos borrada exitosamente. Puedes subir un nuevo documento.' }])
+      setMessages([buildMessage('ai', '🔄 Base de datos borrada exitosamente. Puedes subir un nuevo documento.')])
     } catch (error) {
       console.error(error)
-      addMessage('ai', '❌ Error: No se pudo borrar la base de datos.')
+      addMessage('ai', `❌ Error: ${getErrorMessage(error, 'No se pudo borrar la base de datos.')}`)
     } finally {
       setLoading(false)
     }

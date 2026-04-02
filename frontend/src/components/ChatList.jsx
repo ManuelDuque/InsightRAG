@@ -27,7 +27,7 @@ export default function ChatList() {
   return (
     <main className="flex-1 overflow-y-auto p-4 space-y-6 container mx-auto max-w-4xl custom-scrollbar">
       {messages.map((msg, index) => (
-        <ChatMessage key={index} message={msg} />
+        <ChatMessage key={msg.id ?? index} message={msg} />
       ))}
       {loading && (
         <div className="flex justify-start">
