@@ -50,6 +50,7 @@ export const InsightProvider = ({ children }) => {
     buildMessage('ai', '👋 ¡Hola! Soy InsightRAG. Elige un modelo, sube un PDF y pregúntame lo que quieras.')
   ])
   const [loading, setLoading] = useState(false)
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false)
   const [models, setModels] = useState([])
   const [selectedModel, setSelectedModel] = useState('')
   const askAbortControllerRef = useRef(null)
@@ -117,11 +118,26 @@ export const InsightProvider = ({ children }) => {
     }
   }
 
-  const handleReset = async () => {
-    if (!confirm('¿Estás seguro de que quieres borrar toda la base de datos vectorial? Esta acción no se puede deshacer.')) {
+  const openResetModal = useCallback(() => {
+    if (loading) {
       return
     }
-    
+    setIsResetModalOpen(true)
+  }, [loading])
+
+  const closeResetModal = useCallback(() => {
+    if (loading) {
+      return
+    }
+    setIsResetModalOpen(false)
+  }, [loading])
+
+  const handleReset = async () => {
+    if (loading) {
+      return
+    }
+
+    setIsResetModalOpen(false)
     setLoading(true)
     try {
       await resetDatabase()
@@ -137,12 +153,15 @@ export const InsightProvider = ({ children }) => {
   const value = {
     messages,
     loading,
+    isResetModalOpen,
     models,
     selectedModel,
     setSelectedModel,
     handleFileUpload,
     handleSendMessage,
-    handleReset
+    handleReset,
+    openResetModal,
+    closeResetModal
   }
 
   return (
